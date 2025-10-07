@@ -1,13 +1,13 @@
 {
   "name": "job-management-api",
   "version": "1.0.0",
+  "description": "Job Management API",
   "main": "server.js",
-  "license": "MIT",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
   }
 }
