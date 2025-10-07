@@ -55,5 +55,10 @@ app.delete('/jobs/:id', (req, res) => {
   res.json({ message: `Deleted job ${id}` });
 });
 
+app.get('/', (req, res) => {
+  res.send('✅ Job Management API is running!');
+});
+
+
 // Start the server
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
