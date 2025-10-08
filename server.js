@@ -1,18 +1,134 @@
 const express = require('express');
 const cors = require('cors');
-const app = express();
+const crypto = require('crypto'); // To generate unique IDs
 
+const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- Middleware ---
+// Enable Cross-Origin Resource Sharing for all routes
 app.use(cors());
+// Enable the express app to parse JSON formatted request bodies
 app.use(express.json());
 
+// --- In-Memory Database ---
+// This acts as a simple database. Data will reset if the server restarts.
 let jobs = [
-  { id: 'job_001', title: 'Structural Steel Welding', mode: 'MIG', current: '24A', isActive: true },
-  { id: 'job_002', title: 'Structural Steel Welding', mode: 'MIG DP', current: '132A', isActive: false }
+    {
+        _id: 'job_1700000000001',
+        title: 'Standard Weld Procedure',
+        mode: 'MIG SYN',
+        current: '120A',
+        wire: 'Steel',
+        shieldingGas: 'Ar/CO2',
+        arcLength: '1.5',
+        diameter: '0.9mm',
+        inductance: '3.0',
+        isActive: true,
+        hotStartTime: '',
+        wave: '',
+        base: '',
+        pulse: '',
+        duty: '',
+    },
+    {
+        _id: 'job_1700000000002',
+        title: 'Aluminum Pulse',
+        mode: 'MIG DP',
+        current: '95A',
+        wire: 'Alu',
+        shieldingGas: 'Argon',
+        arcLength: '0.5',
+        diameter: '1.2mm',
+        inductance: '4.5',
+        isActive: false,
+        hotStartTime: '1.2s',
+        wave: 'Sine',
+        base: '30A',
+        pulse: '150A',
+        duty: '60%',
+    }
 ];
 
-app.get('/', (req, res) => res.send('✅ Job Management API is running!'));
-app.get('/api/jobs', (req, res) => res.json(jobs));
+// --- API Routes ---
 
-app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
+// GET all jobs
+// Route: GET /api/jobs
+app.get('/api/jobs', (req, res) => {
+    console.log('GET /api/jobs - Fetching all jobs');
+    // In the Flutter model, the id is named 'id', but here we use '_id'.
+    // We map over the jobs to ensure the property name matches what the client expects.
+    res.status(200).json(jobs.map(job => ({ ...job, id: job._id })));
+});
+
+// POST a new job
+// Route: POST /api/jobs
+app.post('/api/jobs', (req, res) => {
+    console.log('POST /api/jobs - Creating a new job with body:', req.body);
+
+    const { title, mode, current } = req.body;
+    if (!title || !mode || !current) {
+        return res.status(400).json({ message: 'Missing required fields: title, mode, or current.' });
+    }
+
+    const newJob = {
+        _id: `job_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`, // Generate a unique ID
+        isActive: false, // New jobs are inactive by default
+        ...req.body // Spread the rest of the properties from the request body
+    };
+
+    jobs.push(newJob);
+    console.log(`Job created with ID: ${newJob._id}`);
+    res.status(201).json({ ...newJob, id: newJob._id }); // Respond with the created job
+});
+
+
+// PUT (update) a job's status
+// Route: PUT /api/jobs/:id
+app.put('/api/jobs/:id', (req, res) => {
+    const { id } = req.params;
+    const { isActive } = req.body;
+    
+    console.log(`PUT /api/jobs/${id} - Updating status to isActive: ${isActive}`);
+
+    const jobIndex = jobs.findIndex(job => job._id === id);
+
+    if (jobIndex === -1) {
+        return res.status(404).json({ message: 'Job not found' });
+    }
+    if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ message: 'Invalid payload: isActive must be a boolean.' });
+    }
+
+    // Ensure only one job is active at a time
+    if (isActive === true) {
+        jobs.forEach(job => job.isActive = false);
+    }
+
+    jobs[jobIndex].isActive = isActive;
+    console.log(`Job ${id} updated.`);
+    res.status(200).json({ ...jobs[jobIndex], id: jobs[jobIndex]._id });
+});
+
+// DELETE a job
+// Route: DELETE /api/jobs/:id
+app.delete('/api/jobs/:id', (req, res) => {
+    const { id } = req.params;
+    console.log(`DELETE /api/jobs/${id} - Deleting job`);
+
+    const initialLength = jobs.length;
+    jobs = jobs.filter(job => job._id !== id);
+
+    if (jobs.length === initialLength) {
+        return res.status(404).json({ message: 'Job not found' });
+    }
+    
+    console.log(`Job ${id} deleted.`);
+    res.status(200).json({ message: `Job with id ${id} deleted successfully.` });
+});
+
+
+// --- Start Server ---
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
