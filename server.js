@@ -132,3 +132,58 @@ app.delete('/api/jobs/:id', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+
+// ---Put Data ---
+app.put('/api/jobs/:id', (req, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const jobIndex = jobs.findIndex(job => job._id === id);
+
+    if (jobIndex === -1) {
+        console.error(`PUT /api/jobs/${id} - Job not found`);
+        return res.status(404).json({ message: 'Job not found' });
+    }
+
+    // --- LOGIC TO HANDLE DIFFERENT UPDATE TYPES ---
+
+    // CASE 1: Full Job Update (from Edit Sheet)
+    // We check for 'title' as a sign of a full update.
+    if (updateData.title != null) {
+        console.log(`PUT /api/jobs/${id} - Performing FULL update with data:`, updateData);
+        
+        // Merge the old job with the new data.
+        // This preserves the _id and any fields not sent in the request.
+        const updatedJob = { ...jobs[jobIndex], ...updateData };
+        
+        // Replace the old job in the array
+        jobs[jobIndex] = updatedJob;
+
+        console.log(`Job ${id} updated (full).`);
+        res.status(200).json({ ...updatedJob, id: updatedJob._id });
+    } 
+
+    // CASE 2: Status-Only Update (from Toggle Button)
+    // We check *only* for 'isActive'
+    else if (updateData.isActive != null && typeof updateData.isActive === 'boolean') {
+        console.log(`PUT /api/jobs/${id} - Updating STATUS to isActive: ${updateData.isActive}`);
+
+        const isActive = updateData.isActive;
+
+        // Ensure only one job is active at a time
+        if (isActive === true) {
+            jobs.forEach(job => job.isActive = false);
+        }
+
+        jobs[jobIndex].isActive = isActive;
+        console.log(`Job ${id} updated (status only).`);
+        res.status(200).json({ ...jobs[jobIndex], id: jobs[jobIndex]._id });
+    } 
+
+    // CASE 3: Invalid Data
+    else {
+        console.warn(`PUT /api/jobs/${id} - Invalid update data provided:`, updateData);
+        return res.status(400).json({ message: 'Invalid payload. Must provide "title" for a full update or "isActive" for a status update.' });
+    }
+});
