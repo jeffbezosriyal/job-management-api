@@ -169,7 +169,7 @@ app.get('/api/arctime', (req, res) => {
         { day: 'Thu', hours: 4.0 },
         { day: 'Fri', hours: 6.0 },
         { day: 'Sat', hours: 1.5 },
-        { day: 'Sun', hours: 0.0 }
+        { day: 'Sun', hours: 5.0 }
     ];
 
     res.status(200).json({
