@@ -85,59 +85,11 @@ app.post('/api/jobs', (req, res) => {
 
 // PUT (update) a job's status
 // Route: PUT /api/jobs/:id
+// PUT (update) a job's status OR its full details
+// Route: PUT /api/jobs/:id
 app.put('/api/jobs/:id', (req, res) => {
     const { id } = req.params;
-    const { isActive } = req.body;
-    
-    console.log(`PUT /api/jobs/${id} - Updating status to isActive: ${isActive}`);
-
-    const jobIndex = jobs.findIndex(job => job._id === id);
-
-    if (jobIndex === -1) {
-        return res.status(404).json({ message: 'Job not found' });
-    }
-    if (typeof isActive !== 'boolean') {
-        return res.status(400).json({ message: 'Invalid payload: isActive must be a boolean.' });
-    }
-
-    // Ensure only one job is active at a time
-    if (isActive === true) {
-        jobs.forEach(job => job.isActive = false);
-    }
-
-    jobs[jobIndex].isActive = isActive;
-    console.log(`Job ${id} updated.`);
-    res.status(200).json({ ...jobs[jobIndex], id: jobs[jobIndex]._id });
-});
-
-// DELETE a job
-// Route: DELETE /api/jobs/:id
-app.delete('/api/jobs/:id', (req, res) => {
-    const { id } = req.params;
-    console.log(`DELETE /api/jobs/${id} - Deleting job`);
-
-    const initialLength = jobs.length;
-    jobs = jobs.filter(job => job._id !== id);
-
-    if (jobs.length === initialLength) {
-        return res.status(404).json({ message: 'Job not found' });
-    }
-    
-    console.log(`Job ${id} deleted.`);
-    res.status(200).json({ message: `Job with id ${id} deleted successfully.` });
-});
-
-
-// --- Start Server ---
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
-
-
-// ---Put Data ---
-app.put('/api/jobs/:id', (req, res) => {
-    const { id } = req.params;
-    const updateData = req.body;
+    const updateData = req.body; // This contains the full job object or just the status
 
     const jobIndex = jobs.findIndex(job => job._id === id);
 
@@ -152,11 +104,11 @@ app.put('/api/jobs/:id', (req, res) => {
     // We check for 'title' as a sign of a full update.
     if (updateData.title != null) {
         console.log(`PUT /api/jobs/${id} - Performing FULL update with data:`, updateData);
-        
+
         // Merge the old job with the new data.
         // This preserves the _id and any fields not sent in the request.
         const updatedJob = { ...jobs[jobIndex], ...updateData };
-        
+
         // Replace the old job in the array
         jobs[jobIndex] = updatedJob;
 
@@ -186,4 +138,27 @@ app.put('/api/jobs/:id', (req, res) => {
         console.warn(`PUT /api/jobs/${id} - Invalid update data provided:`, updateData);
         return res.status(400).json({ message: 'Invalid payload. Must provide "title" for a full update or "isActive" for a status update.' });
     }
+});
+
+// DELETE a job
+// Route: DELETE /api/jobs/:id
+app.delete('/api/jobs/:id', (req, res) => {
+    const { id } = req.params;
+    console.log(`DELETE /api/jobs/${id} - Deleting job`);
+
+    const initialLength = jobs.length;
+    jobs = jobs.filter(job => job._id !== id);
+
+    if (jobs.length === initialLength) {
+        return res.status(404).json({ message: 'Job not found' });
+    }
+    
+    console.log(`Job ${id} deleted.`);
+    res.status(200).json({ message: `Job with id ${id} deleted successfully.` });
+});
+
+
+// --- Start Server ---
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
