@@ -154,31 +154,50 @@ app.delete('/api/jobs/:id', (req, res) => {
     res.status(200).json({ message: `Job with id ${id} deleted successfully.` });
 });
 
-// --- NEW ENDPOINT FOR ARC TIME METRIC ---
+// --- UPDATED ENDPOINT FOR ARC TIME METRIC ---
 app.get('/api/arctime', (req, res) => {
-    console.log('GET /api/arctime - Fetching arc time data');
-    
+    console.log('GET /api/arctime - Fetching arc time data (all ranges)');
+
     // Simulate total arc time
     const totalSeconds = 131400; // Simulates 36h 30m
-    
-    // Simulate dynamic weekly data for the bar chart
+
+    // Simulate dynamic weekly data (hours per day)
     const weeklyData = [
-        { day: 'Mon', hours: 4.00 },
-        { day: 'Tue', hours: 8.00 },
-        { day: 'Wed', hours: 16.29 },
-        { day: 'Thu', hours: 8.00 },
-        { day: 'Fri', hours: 12.00 },
-        { day: 'Sat', hours: 0.50 },
-        { day: 'Sun', hours: 8.00 }
+        { day: 'Mon', hours: 5.5 },
+        { day: 'Tue', hours: 7.0 },
+        { day: 'Wed', hours: 8.5 },
+        { day: 'Thu', hours: 4.0 },
+        { day: 'Fri', hours: 6.0 },
+        { day: 'Sat', hours: 1.5 },
+        { day: 'Sun', hours: 0.0 }
     ];
+
+    // --- ADDED: Simulate dynamic monthly data (hours per month) ---
+    const monthlyData = [
+        { month: 'Jan', hours: 120.5 }, { month: 'Feb', hours: 110.0 },
+        { month: 'Mar', hours: 135.2 }, { month: 'Apr', hours: 98.8 },
+        { month: 'May', hours: 140.0 }, { month: 'Jun', hours: 155.5 },
+        { month: 'Jul', hours: 160.0 }, { month: 'Aug', hours: 145.7 },
+        { month: 'Sep', hours: 130.0 }, { month: 'Oct', hours: 85.0 }, // Example for current month (Oct)
+        { month: 'Nov', hours: 0.0 },   { month: 'Dec', hours: 0.0 }
+    ].map(item => ({ label: item.month, value: item.hours })); // Format as {label, value}
+
+    // --- ADDED: Simulate dynamic yearly data (hours per year) ---
+    const yearlyData = [
+        { year: '2021', hours: 1500.0 }, { year: '2022', hours: 1850.5 },
+        { year: '2023', hours: 1700.0 }, { year: '2024', hours: 1900.8 },
+        { year: '2025', hours: 1100.0 } // Example for current year
+    ].map(item => ({ label: item.year, value: item.hours })); // Format as {label, value}
+
 
     res.status(200).json({
         totalArcTimeInSeconds: totalSeconds,
         lastUpdated: new Date(Date.now() - 86400000).toISOString(), // "Yesterday"
-        weeklyData: weeklyData // <-- ADDED THIS
+        weeklyData: weeklyData.map(item => ({ label: item.day, value: item.hours })), // Format as {label, value}
+        monthlyData: monthlyData, // <-- ADDED
+        yearlyData: yearlyData   // <-- ADDED
     });
 });
-
 // --- Start Server ---
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
