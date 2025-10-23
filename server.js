@@ -56,8 +56,7 @@ let jobs = [
 // Route: GET /api/jobs
 app.get('/api/jobs', (req, res) => {
     console.log('GET /api/jobs - Fetching all jobs');
-    // In the Flutter model, the id is named 'id', but here we use '_id'.
-    // We map over the jobs to ensure the property name matches what the client expects.
+    // Map over the jobs to ensure the 'id' property matches what the client expects
     res.status(200).json(jobs.map(job => ({ ...job, id: job._id })));
 });
 
@@ -74,7 +73,7 @@ app.post('/api/jobs', (req, res) => {
     const newJob = {
         _id: `job_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`, // Generate a unique ID
         isActive: false, // New jobs are inactive by default
-        ...req.body // Spread the rest of the properties from the request body
+        ...req.body // Spread the rest of the properties
     };
 
     jobs.push(newJob);
@@ -83,8 +82,6 @@ app.post('/api/jobs', (req, res) => {
 });
 
 
-// PUT (update) a job's status
-// Route: PUT /api/jobs/:id
 // PUT (update) a job's status OR its full details
 // Route: PUT /api/jobs/:id
 app.put('/api/jobs/:id', (req, res) => {
@@ -95,7 +92,7 @@ app.put('/api/jobs/:id', (req, res) => {
 
     if (jobIndex === -1) {
         console.error(`PUT /api/jobs/${id} - Job not found`);
-        return res.status(404).json({ message: 'Job not found' });
+        return res.status(44).json({ message: 'Job not found' });
     }
 
     // --- LOGIC TO HANDLE DIFFERENT UPDATE TYPES ---
@@ -104,11 +101,11 @@ app.put('/api/jobs/:id', (req, res) => {
     // We check for 'title' as a sign of a full update.
     if (updateData.title != null) {
         console.log(`PUT /api/jobs/${id} - Performing FULL update with data:`, updateData);
-
+        
         // Merge the old job with the new data.
         // This preserves the _id and any fields not sent in the request.
         const updatedJob = { ...jobs[jobIndex], ...updateData };
-
+        
         // Replace the old job in the array
         jobs[jobIndex] = updatedJob;
 
@@ -157,6 +154,29 @@ app.delete('/api/jobs/:id', (req, res) => {
     res.status(200).json({ message: `Job with id ${id} deleted successfully.` });
 });
 
+// --- NEW ENDPOINT FOR ARC TIME METRIC ---
+app.get('/api/arctime', (req, res) => {
+    console.log('GET /api/arctime - Fetching arc time data');
+    
+    // Calculate total arc time in seconds (simulated)
+    const totalSeconds = 131400; // Simulates 36h 30m
+
+    res.status(200).json({
+        totalArcTimeInSeconds: totalSeconds,
+        lastUpdated: new Date(Date.now() - 86400000).toISOString() // "Yesterday"
+    });
+});
+app.get('/api/arctime', (req, res) => {
+    console.log('GET /api/arctime - Fetching arc time data');
+
+    // Calculate total arc time in seconds (simulated)
+    const totalSeconds = 131400; // Simulates 36h 30m
+
+    res.status(200).json({
+        totalArcTimeInSeconds: totalSeconds,
+        lastUpdated: new Date(Date.now() - 86400000).toISOString() // "Yesterday"
+    });
+});
 
 // --- Start Server ---
 app.listen(PORT, () => {
