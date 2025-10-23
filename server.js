@@ -158,23 +158,24 @@ app.delete('/api/jobs/:id', (req, res) => {
 app.get('/api/arctime', (req, res) => {
     console.log('GET /api/arctime - Fetching arc time data');
     
-    // Calculate total arc time in seconds (simulated)
+    // Simulate total arc time
     const totalSeconds = 131400; // Simulates 36h 30m
+    
+    // Simulate dynamic weekly data for the bar chart
+    const weeklyData = [
+        { day: 'Mon', hours: 5.5 },
+        { day: 'Tue', hours: 7.0 },
+        { day: 'Wed', hours: 8.5 },
+        { day: 'Thu', hours: 4.0 },
+        { day: 'Fri', hours: 6.0 },
+        { day: 'Sat', hours: 1.5 },
+        { day: 'Sun', hours: 0.0 }
+    ];
 
     res.status(200).json({
         totalArcTimeInSeconds: totalSeconds,
-        lastUpdated: new Date(Date.now() - 86400000).toISOString() // "Yesterday"
-    });
-});
-app.get('/api/arctime', (req, res) => {
-    console.log('GET /api/arctime - Fetching arc time data');
-
-    // Calculate total arc time in seconds (simulated)
-    const totalSeconds = 131400; // Simulates 36h 30m
-
-    res.status(200).json({
-        totalArcTimeInSeconds: totalSeconds,
-        lastUpdated: new Date(Date.now() - 86400000).toISOString() // "Yesterday"
+        lastUpdated: new Date(Date.now() - 86400000).toISOString(), // "Yesterday"
+        weeklyData: weeklyData // <-- ADDED THIS
     });
 });
 
