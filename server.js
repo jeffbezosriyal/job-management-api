@@ -163,13 +163,13 @@ app.get('/api/arctime', (req, res) => {
     
     // Simulate dynamic weekly data for the bar chart
     const weeklyData = [
-        { day: 'Mon', hours: 5.5 },
-        { day: 'Tue', hours: 7.0 },
-        { day: 'Wed', hours: 8.5 },
-        { day: 'Thu', hours: 4.0 },
-        { day: 'Fri', hours: 6.0 },
-        { day: 'Sat', hours: 1.5 },
-        { day: 'Sun', hours: 5.0 }
+        { day: 'Mon', hours: 4.00 },
+        { day: 'Tue', hours: 8.00 },
+        { day: 'Wed', hours: 16.29 },
+        { day: 'Thu', hours: 8.00 },
+        { day: 'Fri', hours: 12.00 },
+        { day: 'Sat', hours: 0.50 },
+        { day: 'Sun', hours: 8.00 }
     ];
 
     res.status(200).json({
