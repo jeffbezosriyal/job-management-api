@@ -92,7 +92,8 @@ app.put('/api/jobs/:id', (req, res) => {
 
     if (jobIndex === -1) {
         console.error(`PUT /api/jobs/${id} - Job not found`);
-        return res.status(44).json({ message: 'Job not found' });
+        // Corrected status code for not found
+        return res.status(404).json({ message: 'Job not found' });
     }
 
     // --- LOGIC TO HANDLE DIFFERENT UPDATE TYPES ---
@@ -101,17 +102,17 @@ app.put('/api/jobs/:id', (req, res) => {
     // We check for 'title' as a sign of a full update.
     if (updateData.title != null) {
         console.log(`PUT /api/jobs/${id} - Performing FULL update with data:`, updateData);
-        
+
         // Merge the old job with the new data.
         // This preserves the _id and any fields not sent in the request.
         const updatedJob = { ...jobs[jobIndex], ...updateData };
-        
+
         // Replace the old job in the array
         jobs[jobIndex] = updatedJob;
 
         console.log(`Job ${id} updated (full).`);
         res.status(200).json({ ...updatedJob, id: updatedJob._id });
-    } 
+    }
 
     // CASE 2: Status-Only Update (from Toggle Button)
     // We check *only* for 'isActive'
@@ -128,7 +129,7 @@ app.put('/api/jobs/:id', (req, res) => {
         jobs[jobIndex].isActive = isActive;
         console.log(`Job ${id} updated (status only).`);
         res.status(200).json({ ...jobs[jobIndex], id: jobs[jobIndex]._id });
-    } 
+    }
 
     // CASE 3: Invalid Data
     else {
@@ -149,7 +150,7 @@ app.delete('/api/jobs/:id', (req, res) => {
     if (jobs.length === initialLength) {
         return res.status(404).json({ message: 'Job not found' });
     }
-    
+
     console.log(`Job ${id} deleted.`);
     res.status(200).json({ message: `Job with id ${id} deleted successfully.` });
 });
@@ -163,41 +164,41 @@ app.get('/api/arctime', (req, res) => {
 
     // Simulate dynamic weekly data (hours per day)
     const weeklyData = [
-        { day: 'Mon', hours: 5.5 },
-        { day: 'Tue', hours: 7.0 },
-        { day: 'Wed', hours: 8.5 },
-        { day: 'Thu', hours: 4.0 },
-        { day: 'Fri', hours: 6.0 },
-        { day: 'Sat', hours: 1.5 },
+        { day: 'Mon', hours: 5.5 }, { day: 'Tue', hours: 7.0 },
+        { day: 'Wed', hours: 8.5 }, { day: 'Thu', hours: 4.0 },
+        { day: 'Fri', hours: 6.0 }, { day: 'Sat', hours: 1.5 },
         { day: 'Sun', hours: 0.0 }
     ];
 
-    // --- ADDED: Simulate dynamic monthly data (hours per month) ---
-    const monthlyData = [
-        { month: 'Jan', hours: 120.5 }, { month: 'Feb', hours: 110.0 },
-        { month: 'Mar', hours: 135.2 }, { month: 'Apr', hours: 98.8 },
-        { month: 'May', hours: 140.0 }, { month: 'Jun', hours: 155.5 },
-        { month: 'Jul', hours: 160.0 }, { month: 'Aug', hours: 145.7 },
-        { month: 'Sep', hours: 130.0 }, { month: 'Oct', hours: 85.0 }, // Example for current month (Oct)
-        { month: 'Nov', hours: 0.0 },   { month: 'Dec', hours: 0.0 }
-    ].map(item => ({ label: item.month, value: item.hours })); // Format as {label, value}
+    // --- CHANGED: Simulate dynamic monthly data (hours per DAY of month) ---
+    const monthlyData = Array.from({ length: 31 }, (_, i) => {
+        const dayNumber = i + 1;
+        // Simulate some arc time (0-12 hours) for each day
+        const hours = Math.random() * 12;
+        return {
+            label: dayNumber.toString(), // Label is day number "1", "2", ... "31"
+            value: parseFloat(hours.toFixed(1)) // Value is hours for that day
+        };
+    });
+    // --- END CHANGE ---
 
-    // --- ADDED: Simulate dynamic yearly data (hours per year) ---
+    // Simulate dynamic yearly data (hours per year)
     const yearlyData = [
         { year: '2021', hours: 1500.0 }, { year: '2022', hours: 1850.5 },
         { year: '2023', hours: 1700.0 }, { year: '2024', hours: 1900.8 },
-        { year: '2025', hours: 1100.0 } // Example for current year
-    ].map(item => ({ label: item.year, value: item.hours })); // Format as {label, value}
+        { year: '2025', hours: 1100.0 }
+    ].map(item => ({ label: item.year, value: item.hours }));
 
 
     res.status(200).json({
         totalArcTimeInSeconds: totalSeconds,
         lastUpdated: new Date(Date.now() - 86400000).toISOString(), // "Yesterday"
-        weeklyData: weeklyData.map(item => ({ label: item.day, value: item.hours })), // Format as {label, value}
-        monthlyData: monthlyData, // <-- ADDED
-        yearlyData: yearlyData   // <-- ADDED
+        weeklyData: weeklyData.map(item => ({ label: item.day, value: item.hours })),
+        monthlyData: monthlyData, // Now contains daily data for the month
+        yearlyData: yearlyData
     });
 });
+
 // --- Start Server ---
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
