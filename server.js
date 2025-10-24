@@ -159,43 +159,62 @@ app.delete('/api/jobs/:id', (req, res) => {
 app.get('/api/arctime', (req, res) => {
     console.log('GET /api/arctime - Fetching arc time data (all ranges)');
 
-    // Simulate total arc time
-    const totalSeconds = 131400; // Simulates 36h 30m
+    // This total matches the "Week" view (36h 30m)
+    // The React app will show different totals for other views
+    const totalSeconds = 131400; 
 
-    // Simulate dynamic weekly data (hours per day)
+    // Simulate dynamic weekly data (hours per day) - Matches "Week" view image
     const weeklyData = [
-        { day: 'Mon', hours: 5.5 }, { day: 'Tue', hours: 7.0 },
-        { day: 'Wed', hours: 8.5 }, { day: 'Thu', hours: 4.0 },
-        { day: 'Fri', hours: 6.0 }, { day: 'Sat', hours: 1.5 },
-        { day: 'Sun', hours: 0.0 }
+        { day: 'Sun', hours: 4.0 },
+        { day: 'Mon', hours: 8.0 },
+        { day: 'Tue', hours: 16.48 }, // 16h 29m
+        { day: 'Wed', hours: 8.0 },
+        { day: 'Thu', hours: 12.0 },
+        { day: 'Fri', hours: 2.5 },
+        { day: 'Sat', hours: 9.0 }
     ];
 
-    // --- CHANGED: Simulate dynamic monthly data (hours per DAY of month) ---
+    // Simulate dynamic monthly data (hours per DAY of month) - Matches "Month" view image
     const monthlyData = Array.from({ length: 31 }, (_, i) => {
         const dayNumber = i + 1;
         // Simulate some arc time (0-12 hours) for each day
         const hours = Math.random() * 12;
         return {
-            label: dayNumber.toString(), // Label is day number "1", "2", ... "31"
+            label: dayNumber.toString().padStart(2, '0'), // Label is "01", "02", ... "31"
             value: parseFloat(hours.toFixed(1)) // Value is hours for that day
         };
     });
-    // --- END CHANGE ---
 
-    // Simulate dynamic yearly data (hours per year)
+    // --- CHANGED: Simulate dynamic yearly data (hours per MONTH of year) ---
+    // This now matches the "Year" view image which shows monthly totals.
     const yearlyData = [
-        { year: '2021', hours: 1500.0 }, { year: '2022', hours: 1850.5 },
-        { year: '2023', hours: 1700.0 }, { year: '2024', hours: 1900.8 },
-        { year: '2025', hours: 1100.0 }
-    ].map(item => ({ label: item.year, value: item.hours }));
+        { month: 'Jan', hours: 350.0 },
+        { month: 'Feb', hours: 420.0 },
+        { month: 'Mar', hours: 540.8 }, // 540h 48m (approx from image)
+        { month: 'Apr', hours: 480.0 },
+        { month: 'May', hours: 360.0 },
+        { month: 'Jun', hours: 390.0 },
+        { month: 'Jul', hours: 510.0 },
+        { month: 'Aug', hours: 400.0 },
+        { month: 'Sep', hours: 380.0 },
+        { month: 'Oct', hours: 450.0 },
+        { month: 'Nov', hours: 410.0 },
+        { month: 'Dec', hours: 490.0 }
+    ].map(item => ({ label: item.month, value: item.hours }));
+    // --- END CHANGE ---
 
 
     res.status(200).json({
         totalArcTimeInSeconds: totalSeconds,
         lastUpdated: new Date(Date.now() - 86400000).toISOString(), // "Yesterday"
-        weeklyData: weeklyData.map(item => ({ label: item.day, value: item.hours })),
+        weeklyData: weeklyData.map(item => ({ 
+            label: item.day, 
+            value: item.hours,
+            // Add full date for tooltip
+            date: `2025-02-${9 + weeklyData.findIndex(d => d.day === item.day)}` // Simple simulation
+        })),
         monthlyData: monthlyData, // Now contains daily data for the month
-        yearlyData: yearlyData
+        yearlyData: yearlyData   // Now contains monthly data for the year
     });
 });
 
