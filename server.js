@@ -1,224 +1,163 @@
 const express = require('express');
-const cors = require('cors');
-const crypto = require('crypto'); // To generate unique IDs
+const router = express.Router();
+// Assuming you have database connection and models setup
+// const ArcTimeData = require('../models/ArcTimeData');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// Helper function to get the week number
+const getWeekNumber = (d) => {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return weekNo;
+}
 
-// --- Middleware ---
-// Enable Cross-Origin Resource Sharing for all routes
-app.use(cors());
-// Enable the express app to parse JSON formatted request bodies
-app.use(express.json());
+// GET /api/arctime?date=YYYY-MM-DD&range=week|month|year
+router.get('/arctime', async (req, res) => {
+    const { date, range } = req.query;
+    console.log(`GET /api/arctime - Received request with date: ${date}, range: ${range}`);
 
-// --- In-Memory Database ---
-// This acts as a simple database. Data will reset if the server restarts.
-let jobs = [
-    {
-        _id: 'job_1700000000001',
-        title: 'Standard Weld Procedure',
-        mode: 'MIG SYN',
-        current: '120A',
-        wire: 'Steel',
-        shieldingGas: 'Ar/CO2',
-        arcLength: '1.5',
-        diameter: '0.9mm',
-        inductance: '3.0',
-        isActive: true,
-        hotStartTime: '',
-        wave: '',
-        base: '',
-        pulse: '',
-        duty: '',
-    },
-    {
-        _id: 'job_1700000000002',
-        title: 'Aluminum Pulse',
-        mode: 'MIG DP',
-        current: '95A',
-        wire: 'Alu',
-        shieldingGas: 'Argon',
-        arcLength: '0.5',
-        diameter: '1.2mm',
-        inductance: '4.5',
-        isActive: false,
-        hotStartTime: '1.2s',
-        wave: 'Sine',
-        base: '30A',
-        pulse: '150A',
-        duty: '60%',
-    }
-];
 
-// --- API Routes ---
-
-// GET all jobs
-// Route: GET /api/jobs
-app.get('/api/jobs', (req, res) => {
-    console.log('GET /api/jobs - Fetching all jobs');
-    // Map over the jobs to ensure the 'id' property matches what the client expects
-    res.status(200).json(jobs.map(job => ({ ...job, id: job._id })));
-});
-
-// POST a new job
-// Route: POST /api/jobs
-app.post('/api/jobs', (req, res) => {
-    console.log('POST /api/jobs - Creating a new job with body:', req.body);
-
-    const { title, mode, current } = req.body;
-    if (!title || !mode || !current) {
-        return res.status(400).json({ message: 'Missing required fields: title, mode, or current.' });
+    if (!date || !range || !['week', 'month', 'year'].includes(range)) {
+        console.error('Invalid query parameters received.');
+        return res.status(400).json({ message: 'Missing or invalid query parameters: date (YYYY-MM-DD) and range (week|month|year) are required.' });
     }
 
-    const newJob = {
-        _id: `job_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`, // Generate a unique ID
-        isActive: false, // New jobs are inactive by default
-        ...req.body // Spread the rest of the properties
-    };
+    try {
+        const referenceDate = new Date(date); // Parse the reference date string
+         if (isNaN(referenceDate.getTime())) {
+             console.error('Invalid date format received.');
+             return res.status(400).json({ message: 'Invalid date format. Please use YYYY-MM-DD.' });
+         }
 
-    jobs.push(newJob);
-    console.log(`Job created with ID: ${newJob._id}`);
-    res.status(201).json({ ...newJob, id: newJob._id }); // Respond with the created job
-});
+        // --- Calculate Start and End Dates based on Range ---
+        let startDate, endDate;
+        let groupByFormat; // For database aggregation (e.g., '%w' for day of week, '%Y-%m-%d' for day)
+        const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; // Map for week labels
+        const monthsOfYear = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; // Map for year labels
 
+        console.log(`Calculating date range for ${range} based on ${referenceDate.toDateString()}`);
 
-// PUT (update) a job's status OR its full details
-// Route: PUT /api/jobs/:id
-app.put('/api/jobs/:id', (req, res) => {
-    const { id } = req.params;
-    const updateData = req.body; // This contains the full job object or just the status
+        if (range === 'week') {
+            // Calculate start of the week (Monday)
+            const dayOfWeek = referenceDate.getDay(); // 0 for Sunday, 1 for Monday,... 6 for Saturday
+            const diff = referenceDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust to Monday
+            startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), diff);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6); // End on Sunday
+            groupByFormat = '%w'; // Group by day of week index (0-6)
+            console.log(`Week range: ${startDate.toDateString()} - ${endDate.toDateString()}`);
 
-    const jobIndex = jobs.findIndex(job => job._id === id);
+        } else if (range === 'month') {
+            startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
+            endDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0); // Last day of month
+            groupByFormat = '%d'; // Group by day of the month ('01'-'31')
+            console.log(`Month range: ${startDate.toDateString()} - ${endDate.toDateString()}`);
 
-    if (jobIndex === -1) {
-        console.error(`PUT /api/jobs/${id} - Job not found`);
-        // Corrected status code for not found
-        return res.status(404).json({ message: 'Job not found' });
-    }
-
-    // --- LOGIC TO HANDLE DIFFERENT UPDATE TYPES ---
-
-    // CASE 1: Full Job Update (from Edit Sheet)
-    // We check for 'title' as a sign of a full update.
-    if (updateData.title != null) {
-        console.log(`PUT /api/jobs/${id} - Performing FULL update with data:`, updateData);
-
-        // Merge the old job with the new data.
-        // This preserves the _id and any fields not sent in the request.
-        const updatedJob = { ...jobs[jobIndex], ...updateData };
-
-        // Replace the old job in the array
-        jobs[jobIndex] = updatedJob;
-
-        console.log(`Job ${id} updated (full).`);
-        res.status(200).json({ ...updatedJob, id: updatedJob._id });
-    }
-
-    // CASE 2: Status-Only Update (from Toggle Button)
-    // We check *only* for 'isActive'
-    else if (updateData.isActive != null && typeof updateData.isActive === 'boolean') {
-        console.log(`PUT /api/jobs/${id} - Updating STATUS to isActive: ${updateData.isActive}`);
-
-        const isActive = updateData.isActive;
-
-        // Ensure only one job is active at a time
-        if (isActive === true) {
-            jobs.forEach(job => job.isActive = false);
+        } else if (range === 'year') {
+            startDate = new Date(referenceDate.getFullYear(), 0, 1); // Jan 1st
+            endDate = new Date(referenceDate.getFullYear(), 11, 31); // Dec 31st
+            groupByFormat = '%m'; // Group by month number ('01'-'12')
+            console.log(`Year range: ${startDate.toDateString()} - ${endDate.toDateString()}`);
         }
 
-        jobs[jobIndex].isActive = isActive;
-        console.log(`Job ${id} updated (status only).`);
-        res.status(200).json({ ...jobs[jobIndex], id: jobs[jobIndex]._id });
-    }
+        // --- Database Query (Conceptual - depends on your DB/ORM) ---
+        // Your actual database query would use startDate and endDate in the $match stage
+        // and groupByFormat in the $group stage.
+        /*
+        const aggregatedData = await ArcTimeData.aggregate([
+            {
+                $match: {
+                    // Ensure timestamp field is indexed for performance
+                    timestamp: { $gte: startDate, $lte: endDate }
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: groupByFormat, date: "$timestamp" } },
+                    totalDuration: { $sum: "$durationSeconds" } // Assuming duration is stored in seconds
+                }
+            },
+             // Add timezone if your timestamps are UTC but you want to group by local time
+             // _id: { $dateToString: { format: groupByFormat, date: "$timestamp", timezone: "Your/Timezone" } }, // e.g., "America/New_York"
 
-    // CASE 3: Invalid Data
-    else {
-        console.warn(`PUT /api/jobs/${id} - Invalid update data provided:`, updateData);
-        return res.status(400).json({ message: 'Invalid payload. Must provide "title" for a full update or "isActive" for a status update.' });
-    }
-});
+            { $sort: { _id: 1 } } // Sort by the grouping key (day index, day number, month number)
+        ]);
 
-// DELETE a job
-// Route: DELETE /api/jobs/:id
-app.delete('/api/jobs/:id', (req, res) => {
-    const { id } = req.params;
-    console.log(`DELETE /api/jobs/${id} - Deleting job`);
+        // --- Calculate Overall Total (this might be a separate, simpler query or cached value) ---
+        const totalResult = await ArcTimeData.aggregate([
+             { $group: { _id: null, totalSeconds: { $sum: "$durationSeconds" } } }
+        ]);
+        const totalArcTimeInSeconds = totalResult.length > 0 ? totalResult[0].totalSeconds : 0;
+        */
+        console.log('Simulating database query for the calculated range.');
+        // --- End Conceptual Query ---
 
-    const initialLength = jobs.length;
-    jobs = jobs.filter(job => job._id !== id);
 
-    if (jobs.length === initialLength) {
-        return res.status(404).json({ message: 'Job not found' });
-    }
+        // --- Process and Format Results (using MOCK data for now) ---
+        // Generate mock data dynamically based on the requested range/date
 
-    console.log(`Job ${id} deleted.`);
-    res.status(200).json({ message: `Job with id ${id} deleted successfully.` });
-});
+        let weeklyData = [];
+        let monthlyData = [];
+        let yearlyData = [];
+        let totalArcTimeInSeconds = 0; // Simulate total specific to the period
 
-// --- UPDATED ENDPOINT FOR ARC TIME METRIC ---
-app.get('/api/arctime', (req, res) => {
-    console.log('GET /api/arctime - Fetching arc time data (all ranges)');
+        const generateRandomValue = (max) => parseFloat((Math.random() * max).toFixed(1));
 
-    // This total matches the "Week" view (36h 30m)
-    // The React app will show different totals for other views
-    const totalSeconds = 131400; 
+        if (range === 'week') {
+            weeklyData = daysOfWeek.slice(1).concat(daysOfWeek[0]).map(dayLabel => { // Mon-Sun order
+                 // Simulate different values based on the week
+                 const weekOfYear = getWeekNumber(referenceDate);
+                 const value = generateRandomValue(8) * (1 + Math.sin(weekOfYear)); // Vary value by week
+                 totalArcTimeInSeconds += Math.round(value * 3600);
+                 return { label: dayLabel, value: value };
+            });
+             // Ensure the order matches Mon-Sun for the client
+             const dayOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+             weeklyData.sort((a, b) => dayOrder.indexOf(a.label) - dayOrder.indexOf(b.label));
 
-    // Simulate dynamic weekly data (hours per day) - Matches "Week" view image
-    const weeklyData = [
-        { day: 'Sun', hours: 4.0 },
-        { day: 'Mon', hours: 8.0 },
-        { day: 'Tue', hours: 16.48 }, // 16h 29m
-        { day: 'Wed', hours: 8.0 },
-        { day: 'Thu', hours: 12.0 },
-        { day: 'Fri', hours: 2.5 },
-        { day: 'Sat', hours: 9.0 }
-    ];
+        } else if (range === 'month') {
+            const daysInMonth = endDate.getDate(); // Get actual number of days in the month
+            monthlyData = Array.from({ length: daysInMonth }, (_, i) => {
+                const dayLabel = (i + 1).toString().padStart(2, '0');
+                 // Simulate different values based on the month/day
+                 const value = generateRandomValue(10) * (1 + Math.cos(referenceDate.getMonth() + i));
+                 totalArcTimeInSeconds += Math.round(value * 3600);
+                return { label: dayLabel, value: value };
+            });
+        } else if (range === 'year') {
+            yearlyData = monthsOfYear.map(monthLabel => {
+                 // Simulate different values based on the year/month
+                 const value = generateRandomValue(150) * (1 + Math.sin(referenceDate.getFullYear() + monthsOfYear.indexOf(monthLabel)));
+                 totalArcTimeInSeconds += Math.round(value * 3600);
+                return { label: monthLabel, value: value };
+            });
+        }
 
-    // Simulate dynamic monthly data (hours per DAY of month) - Matches "Month" view image
-    const monthlyData = Array.from({ length: 31 }, (_, i) => {
-        const dayNumber = i + 1;
-        // Simulate some arc time (0-12 hours) for each day
-        const hours = Math.random() * 12;
-        return {
-            label: dayNumber.toString().padStart(2, '0'), // Label is "01", "02", ... "31"
-            value: parseFloat(hours.toFixed(1)) // Value is hours for that day
+        // Simulate a slightly varying last updated time
+        const lastUpdated = new Date();
+        lastUpdated.setMinutes(lastUpdated.getMinutes() - Math.floor(Math.random() * 60));
+
+
+        const responseData = {
+           totalArcTimeInSeconds: totalArcTimeInSeconds,
+           lastUpdated: lastUpdated.toISOString(),
+           weeklyData: weeklyData,
+           monthlyData: monthlyData,
+           yearlyData: yearlyData,
         };
-    });
 
-    // --- CHANGED: Simulate dynamic yearly data (hours per MONTH of year) ---
-    // This now matches the "Year" view image which shows monthly totals.
-    const yearlyData = [
-        { month: 'Jan', hours: 350.0 },
-        { month: 'Feb', hours: 420.0 },
-        { month: 'Mar', hours: 540.8 }, // 540h 48m (approx from image)
-        { month: 'Apr', hours: 480.0 },
-        { month: 'May', hours: 360.0 },
-        { month: 'Jun', hours: 390.0 },
-        { month: 'Jul', hours: 510.0 },
-        { month: 'Aug', hours: 400.0 },
-        { month: 'Sep', hours: 380.0 },
-        { month: 'Oct', hours: 450.0 },
-        { month: 'Nov', hours: 410.0 },
-        { month: 'Dec', hours: 490.0 }
-    ].map(item => ({ label: item.month, value: item.hours }));
-    // --- END CHANGE ---
+        console.log(`Sending response for range ${range}, date ${date}. Total calculated: ${totalArcTimeInSeconds}s`);
+        // --- Send Response ---
+        res.status(200).json(responseData);
 
-
-    res.status(200).json({
-        totalArcTimeInSeconds: totalSeconds,
-        lastUpdated: new Date(Date.now() - 86400000).toISOString(), // "Yesterday"
-        weeklyData: weeklyData.map(item => ({ 
-            label: item.day, 
-            value: item.hours,
-            // Add full date for tooltip
-            date: `2025-02-${9 + weeklyData.findIndex(d => d.day === item.day)}` // Simple simulation
-        })),
-        monthlyData: monthlyData, // Now contains daily data for the month
-        yearlyData: yearlyData   // Now contains monthly data for the year
-    });
+    } catch (error) {
+        // Log the detailed error on the server
+        console.error(`Error fetching arc time for date=${date}, range=${range}:`, error);
+        // Send a generic error message to the client
+        res.status(500).json({ message: 'Internal Server Error while processing arc time data.' });
+    }
 });
 
-// --- Start Server ---
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+module.exports = router;
+
